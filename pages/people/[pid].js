@@ -3,17 +3,29 @@ import useSWR from "swr";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import Spinner from "../../components/spinner";
+import { revalidateLiveQueries } from "../_app";
+
+function useMutation(key) {
+  return async function (data) {
+    await fetch(key, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    await revalidateLiveQueries();
+  };
+}
 
 export default function Person() {
   let router = useRouter();
   let { data } = useSWR(`/api/people/${router.query.pid}`);
   let [isSaving, setIsSaving] = useState(false);
+  let createEvent = useMutation("/api/events");
 
   async function addEvent(personId) {
     setIsSaving(true);
 
     // Create the event
-    console.log({ personId });
+    await createEvent({ personId });
 
     setIsSaving(false);
   }

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import useSWR, { SWRConfig } from "swr";
+import useSWR, { SWRConfig, mutate } from "swr";
 import "tailwindcss/tailwind.css";
 import { makeServer } from "../mirage";
 import { Suspense, useEffect, useState } from "react";
@@ -28,6 +28,7 @@ export default function Wrapper(props) {
       value={{
         fetcher: (...args) => fetch(...args).then((res) => res.json()),
         suspense: true,
+        use: [trackLiveQueries],
       }}
     >
       <Suspense
@@ -116,4 +117,28 @@ function PersonLink({ person }) {
       </Link>
     </li>
   );
+}
+
+let liveQueries = new Set();
+
+function trackLiveQueries(useSWRNext) {
+  return (key, fetcher, config) => {
+    const swr = useSWRNext(key, fetcher, config);
+
+    useEffect(() => {
+      liveQueries.add(key);
+
+      return () => {
+        liveQueries.delete(key);
+      };
+    }, [key]);
+
+    return swr;
+  };
+}
+
+export async function revalidateLiveQueries() {
+  let promises = [...liveQueries.values()].map((key) => mutate(key));
+
+  return Promise.all(promises);
 }
